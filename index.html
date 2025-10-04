@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Pomodoro Timer</title>
+  <style>
+    :root{
+      --bg:#0f172a; /* slate-900 */
+      --panel:#111827; /* gray-900 */
+      --accent:#22d3ee; /* cyan-400 */
+      --accent-2:#a78bfa; /* violet-400 */
+      --text:#e5e7eb; /* gray-200 */
+      --muted:#94a3b8; /* slate-400 */
+      --good:#34d399; /* green-400 */
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{
+      margin:0; font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji","Segoe UI Emoji";
+      background: radial-gradient(1200px 800px at 80% 0%, #1f2937 0%, var(--bg) 40%);
+      color:var(--text); display:grid; place-items:center; padding:24px;
+    }
+    .app{width:100%; max-width:760px}
+    header{display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:20px}
+    header h1{font-size:clamp(18px,2vw,22px); margin:0; letter-spacing:.5px}
+    .mode{
+      display:inline-grid; grid-auto-flow:column; gap:8px; background:#0b1220; padding:6px; border-radius:14px; border:1px solid #1f2a44
+    }
+    .chip{border:none; background:transparent; color:var(--muted); padding:8px 12px; border-radius:10px; cursor:pointer}
+    .chip[aria-pressed="true"]{background:linear-gradient(135deg, rgba(34,211,238,.15), rgba(167,139,250,.15)); color:var(--text); border:1px solid rgba(34,211,238,.25)}
+
+    .card{background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0)); border:1px solid rgba(255,255,255,0.06); border-radius:20px; padding:22px; box-shadow:0 10px 30px rgba(0,0,0,.35)}
+
+    .time{
+      font-variant-numeric: tabular-nums; font-weight:700; text-align:center; letter-spacing:1px;
+      font-size: clamp(42px, 10vw, 96px);
+    }
+    .sub{color:var(--muted); text-align:center; margin-top:6px}
+
+    .controls{display:flex; justify-content:center; gap:12px; margin-top:18px; flex-wrap:wrap}
+    .btn{padding:12px 18px; border-radius:12px; border:1px solid rgba(255,255,255,.08); background:#0b1220; color:var(--text); cursor:pointer; font-weight:600}
+    .btn.primary{background:linear-gradient(135deg, var(--accent), var(--accent-2)); color:#0b1220; border:none}
+    .btn:disabled{opacity:.5; cursor:not-allowed}
+
+    .grid{display:grid; grid-template-columns: repeat(auto-fit, minmax(220px,1fr)); gap:14px; margin-top:18px}
+    .field{display:flex; align-items:center; justify-content:space-between; background:#0b1220; border:1px solid #1f2a44; padding:12px 14px; border-radius:12px}
+    .field label{color:var(--muted)}
+    .field input{width:90px; background:transparent; border:none; color:var(--text); font-weight:600; font-size:16px; text-align:right; outline:none}
+
+    .footer{display:flex; justify-content:space-between; gap:10px; align-items:center; margin-top:14px; color:var(--muted)}
+    .pill{display:inline-flex; gap:6px; align-items:center; border:1px solid #1f2a44; background:#0b1220; border-radius:999px; padding:6px 10px}
+    .dot{width:8px; height:8px; border-radius:50%}
+
+    .sr-only{position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0}
+  </style>
+</head>
+<body>
+  <div class="app">
+    <header>
+      <h1>⏱️ Pomodoro Timer</h1>
+      <div class="mode" role="tablist" aria-label="Modes">
+        <button class="chip" data-mode="work" role="tab" aria-selected="true" aria-pressed="true">Work</button>
+        <button class="chip" data-mode="short" role="tab" aria-selected="false" aria-pressed="false">Short break</button>
+        <button class="chip" data-mode="long" role="tab" aria-selected="false" aria-pressed="false">Long break</button>
+      </div>
+    </header>
+
+    <section class="card" aria-live="polite">
+      <div id="display" class="time" aria-atomic="true">25:00</div>
+      <div class="sub"><span id="statusText">Ready</span> • <span id="cycleText">0 / 4</span></div>
+      <div class="controls">
+        <button id="startBtn" class="btn primary">Start</button>
+        <button id="pauseBtn" class="btn">Pause</button>
+        <button id="resetBtn" class="btn">Reset</button>
+      </div>
+
+      <div class="grid">
+        <div class="field"><label for="workMins">Work (min)</label><input id="workMins" type="number" min="1" value="25"></div>
+        <div class="field"><label for="shortMins">Short break (min)</label><input id="shortMins" type="number" min="1" value="5"></div>
+        <div class="field"><label for="longMins">Long break (min)</label><input id="longMins" type="number" min="1" value="15"></div>
+        <div class="field"><label for="longEvery">Long break every</label><input id="longEvery" type="number" min="2" value="4"> </div>
+      </div>
+
+      <div class="footer">
+        <span class="pill"><span class="dot" id="runDot" style="background:#6b7280"></span> <span id="runLabel">Idle</span></span>
+        <div style="display:flex; gap:8px; align-items:center">
+          <label class="pill" style="gap:8px; cursor:pointer">
+            <input id="notifyToggle" type="checkbox" aria-label="Enable notifications"> Notifications
+          </label>
+          <label class="pill" style="gap:8px; cursor:pointer">
+            <input id="soundToggle" type="checkbox" aria-label="Enable sound" checked> Sound
+          </label>
+        </div>
+      </div>
+
+      <audio id="ding" preload="auto">
+        <source src="data:audio/mp3;base64,//uQZAAAAAAAAAAAAAAAAAAAAAAAWGluZwAAAA8AAAACAAACcQAAACAAACFkAAACcGZ//... (placeholder)" type="audio/mpeg">
+      </audio>
+      <span class="sr-only" id="ariaAnnounce" aria-live="assertive"></span>
+    </section>
+  </div>
+
+  <script>
+    // --- Utilities
+    const clamp = (n, min, max) => Math.min(Math.max(n, min), max);
+    const pad = n => String(n).padStart(2,'0');
+    const $ = sel => document.querySelector(sel);
+
+    // --- Elements
+    const display = $('#display');
+    const statusText = $('#statusText');
+    const cycleText = $('#cycleText');
+    const startBtn = $('#startBtn');
+    const pauseBtn = $('#pauseBtn');
+    const resetBtn = $('#resetBtn');
+    const workMins = $('#workMins');
+    const shortMins = $('#shortMins');
+    const longMins = $('#longMins');
+    const longEvery = $('#longEvery');
+    const notifyToggle = $('#notifyToggle');
+    const soundToggle = $('#soundToggle');
+    const runDot = $('#runDot');
+    const runLabel = $('#runLabel');
+    const ding = $('#ding');
+    const ariaAnnounce = $('#ariaAnnounce');
+
+    // --- State
+    const STATE_KEY = 'pomodoro_state_v1';
+    let state = {
+      mode: 'work', // 'work' | 'short' | 'long'
+      running: false,
+      endAt: null, // epoch ms
+      remaining: 25*60*1000,
+      cyclesCompleted: 0,
+      longEvery: 4,
+      settings: {
+        work: 25, short: 5, long: 15,
+        notifications: false,
+        sound: true
+      }
+    };
+
+    // --- Persistence
+    function save(){ localStorage.setItem(STATE_KEY, JSON.stringify(state)); }
+    function load(){
+      try {
+        const raw = localStorage.getItem(STATE_KEY);
+        if(!raw) return;
+        const s = JSON.parse(raw);
+        Object.assign(state, s);
+      } catch(e) {}
+    }
+
+    // --- Init
+    function applySettingsToUI(){
+      workMins.value = state.settings.work;
+      shortMins.value = state.settings.short;
+      longMins.value = state.settings.long;
+      longEvery.value = state.longEvery;
+      notifyToggle.checked = state.settings.notifications;
+      soundToggle.checked = state.settings.sound;
+      setMode(state.mode, false);
+      updateCycleText();
+      updateRunBadge();
+      render();
+    }
+
+    function requestNotificationPermissionIfNeeded(){
+      if(state.settings.notifications && 'Notification' in window && Notification.permission === 'default'){
+        Notification.requestPermission();
+      }
+    }
+
+    // --- Mode switching
+    function setMode(mode, resetTime=true){
+      state.mode = mode;
+      document.querySelectorAll('.chip').forEach(btn=>{
+        const active = btn.dataset.mode === mode;
+        btn.setAttribute('aria-selected', active);
+        btn.setAttribute('aria-pressed', active);
+      });
+      const mins = mode==='work'? state.settings.work : mode==='short'? state.settings.short : state.settings.long;
+      if(resetTime){
+        state.remaining = mins*60*1000;
+        state.endAt = state.running ? Date.now() + state.remaining : null;
+      }
+      statusText.textContent = mode==='work' ? 'Focus time' : (mode==='short'?'Short break':'Long break');
+      render();
+      save();
+    }
+
+    function nextMode(){
+      if(state.mode==='work'){
+        state.cyclesCompleted += 1;
+        const useLong = (state.cyclesCompleted % state.longEvery) === 0;
+        setMode(useLong ? 'long' : 'short');
+      } else {
+        setMode('work');
+      }
+      updateCycleText();
+    }
+
+    function updateCycleText(){
+      cycleText.textContent = `${state.cyclesCompleted % state.longEvery} / ${state.longEvery}`;
+    }
+
+    // --- Timer core (timestamp-based to survive tab sleeps)
+    let rafId = null;
+    function start(){
+      if(state.running) return;
+      state.running = true;
+      state.endAt = Date.now() + state.remaining;
+      tick();
+      updateRunBadge();
+      save();
+    }
+
+    function pause(){
+      if(!state.running) return;
+      state.running = false;
+      cancelAnimationFrame(rafId);
+      state.remaining = Math.max(0, state.endAt - Date.now());
+      state.endAt = null;
+      updateRunBadge();
+      render();
+      save();
+    }
+
+    function reset(){
+      state.running = false;
+      cancelAnimationFrame(rafId);
+      const mins = state.mode==='work'? state.settings.work : state.mode==='short'? state.settings.short : state.settings.long;
+      state.remaining = mins*60*1000;
+      state.endAt = null;
+      updateRunBadge();
+      render();
+      save();
+    }
+
+    function tick(){
+      if(!state.running) return;
+      const now = Date.now();
+      const left = Math.max(0, state.endAt - now);
+      state.remaining = left;
+      render();
+      if(left <= 0){
+        done();
+        return;
+      }
+      rafId = requestAnimationFrame(tick);
+    }
+
+    function render(){
+      const totalSec = Math.round(state.remaining/1000);
+      const mm = Math.floor(totalSec/60);
+      const ss = totalSec % 60;
+      display.textContent = `${pad(mm)}:${pad(ss)}`;
+      document.title = `${display.textContent} • Pomodoro`;
+    }
+
+    function done(){
+      state.running = false;
+      cancelAnimationFrame(rafId);
+      state.remaining = 0;
+      render();
+      notify("Time's up!", state.mode==='work'? 'Break time 🎉' : 'Back to focus 💪');
+      if(state.settings.sound){ try{ ding.currentTime=0; ding.play(); }catch(e){} }
+      setTimeout(()=>{ nextMode(); start(); }, 800); // auto-continue
+      save();
+    }
+
+    function notify(title, body){
+      if(!state.settings.notifications) return;
+      if('Notification' in window){
+        if(Notification.permission==='granted'){
+          new Notification(title, { body });
+        } else if(Notification.permission==='default'){
+          Notification.requestPermission().then(p=>{ if(p==='granted') new Notification(title,{body}); });
+        }
+      }
+    }
+
+    // --- Events
+    startBtn.addEventListener('click', start);
+    pauseBtn.addEventListener('click', pause);
+    resetBtn.addEventListener('click', reset);
+
+    document.querySelectorAll('.chip').forEach(btn=>{
+      btn.addEventListener('click', ()=> setMode(btn.dataset.mode));
+    });
+
+    [workMins, shortMins, longMins].forEach((inp)=>{
+      inp.addEventListener('change', ()=>{
+        const w = clamp(parseInt(workMins.value||25), 1, 180);
+        const s = clamp(parseInt(shortMins.value||5), 1, 60);
+        const l = clamp(parseInt(longMins.value||15), 1, 180);
+        state.settings.work=w; state.settings.short=s; state.settings.long=l;
+        // If not running, reset remaining to reflect new duration for current mode
+        if(!state.running){ setMode(state.mode, true); }
+        save();
+      });
+    });
+
+    longEvery.addEventListener('change', ()=>{
+      state.longEvery = clamp(parseInt(longEvery.value||4), 2, 12);
+      updateCycleText();
+      save();
+    });
+
+    notifyToggle.addEventListener('change', ()=>{
+      state.settings.notifications = notifyToggle.checked;
+      requestNotificationPermissionIfNeeded();
+      save();
+    });
+
+    soundToggle.addEventListener('change', ()=>{
+      state.settings.sound = soundToggle.checked; save();
+    });
+
+    function updateRunBadge(){
+      if(state.running){
+        runDot.style.background = 'var(--good)';
+        runLabel.textContent = 'Running';
+      } else {
+        runDot.style.background = '#6b7280';
+        runLabel.textContent = 'Idle';
+      }
+    }
+
+    // Restore state on load
+    load();
+    applySettingsToUI();
+    if(state.running && state.endAt){ tick(); }
+
+    // Ask for notification permission if user enabled it previously
+    requestNotificationPermissionIfNeeded();
+
+    // Keyboard shortcuts
+    window.addEventListener('keydown', (e)=>{
+      if(e.code==='Space'){ e.preventDefault(); state.running? pause(): start(); }
+      if(e.key==='r'){ reset(); }
+      if(e.key==='1'){ setMode('work'); }
+      if(e.key==='2'){ setMode('short'); }
+      if(e.key==='3'){ setMode('long'); }
+    });
+  </script>
+</body>
+</html>
