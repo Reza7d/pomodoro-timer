@@ -185,7 +185,7 @@
         state.remaining = mins*60*1000;
         state.endAt = state.running ? Date.now() + state.remaining : null;
       }
-      statusText.textContent = mode==='work' ? 'Focus time' : (mode==='short'?'Short break':'Long break');
+      statusText.textContent = mode==='work' ? 'Focus time' : (mode==='short'?'Break':'Long break');
       render();
       save();
     }
